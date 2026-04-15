@@ -7,7 +7,7 @@ const ENTRANCES = [
 ];
 
 const RESIDENTS = [
-  { id: 1, name: "משפחת כהן", apt: 1, floor: 1, entrance: "A", phone: "050-1234567", isCommittee: true, role: "יו״ר ועד" },
+  { id: 1, name: "ישראל רנט", apt: 1, floor: 1, entrance: "A", phone: "050-1234567", isCommittee: true, role: "יו״ר ועד" },
   { id: 2, name: "משפחת לוי", apt: 2, floor: 1, entrance: "A", phone: "052-9876543", isCommittee: true, role: "גזבר" },
   { id: 3, name: "משפחת מזרחי", apt: 3, floor: 2, entrance: "A", phone: "054-5551234" },
   { id: 4, name: "משפחת אברהם", apt: 4, floor: 2, entrance: "A", phone: "053-7778899" },
@@ -91,6 +91,228 @@ const INITIAL_DECISIONS = [
 /* ===== SHARED STYLES ===== */
 const btnSm = { padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--f)", fontSize: 12 };
 const card = { background: "#fff", borderRadius: 20, padding: 20, boxShadow: "0 2px 16px rgba(26,39,68,0.06)" };
+
+/* ===== CSV EXPORT ===== */
+const downloadCSV = (filename, headers, rows) => {
+  const BOM = "\uFEFF";
+  const csv = BOM + [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+};
+
+const exportResidents = () => {
+  const headers = ["מספר", "שם", "כניסה", "דירה", "קומה", "טלפון", "חבר ועד", "תפקיד"];
+  const rows = RESIDENTS.map(r => [
+    r.id, r.name, r.entrance, r.apt, r.floor, r.phone, r.isCommittee ? "כן" : "", r.role || ""
+  ]);
+  downloadCSV("דיירים.csv", headers, rows);
+};
+
+const exportPayments = (payments, periodId) => {
+  const period = PAYMENT_PERIODS.find(p => p.id === periodId);
+  const headers = ["שם", "כניסה", "דירה", "סטטוס", "תאריך תשלום", "אמצעי תשלום"];
+  const rows = RESIDENTS.map(r => {
+    const paid = payments[r.id]?.[periodId];
+    return [r.name, r.entrance, r.apt, paid ? "שולם" : "לא שולם", paid?.date || "", paid?.method || ""];
+  });
+  downloadCSV(`תשלומים_${period?.label || periodId}.csv`, headers, rows);
+};
+
+/* ===== EXCEL IMPORT ===== */
+let _XLSX = null;
+const loadSheetJS = () => {
+  if (_XLSX) return Promise.resolve(_XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = () => { _XLSX = window.XLSX; resolve(_XLSX); };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+};
+
+const parseExcelFile = (file) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const XLSX = await loadSheetJS();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const wb = XLSX.read(e.target.result, { type: "array" });
+        const sheets = {};
+        wb.SheetNames.forEach((name) => {
+          sheets[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 });
+        });
+        resolve(sheets);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    } catch (err) { reject(err); }
+  });
+};
+
+/* ===== IMPORT MODAL ===== */
+function ImportModal({ onClose, onImportPayments, currentPeriod, showToast }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState("");
+  const [importType, setImportType] = useState("payments");
+  const fileRef = useRef(null);
+
+  const handleFile = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    setError("");
+    try {
+      const sheets = await parseExcelFile(f);
+      const firstSheet = Object.values(sheets)[0];
+      if (!firstSheet || firstSheet.length < 2) { setError("הקובץ ריק או לא בפורמט תקין"); return; }
+      setPreview({ headers: firstSheet[0], rows: firstSheet.slice(1), sheetNames: Object.keys(sheets), allSheets: sheets });
+    } catch { setError("שגיאה בקריאת הקובץ. וודא שזה קובץ Excel (.xlsx) או CSV (.csv) תקין."); }
+  };
+
+  const handleImport = () => {
+    if (!preview) return;
+    setImporting(true);
+    try {
+      const rows = preview.rows;
+      const headers = preview.headers.map(h => String(h || "").trim());
+
+      if (importType === "payments") {
+        // Find name column and status/amount columns
+        const nameCol = headers.findIndex(h => h.includes("שם"));
+        const statusCol = headers.findIndex(h => h.includes("סטטוס") || h.includes("שולם"));
+        const methodCol = headers.findIndex(h => h.includes("אמצעי") || h.includes("תשלום"));
+        const dateCol = headers.findIndex(h => h.includes("תאריך"));
+
+        if (nameCol === -1) { setError("לא נמצאה עמודת 'שם' בקובץ"); setImporting(false); return; }
+
+        const updates = [];
+        rows.forEach((row) => {
+          const name = String(row[nameCol] || "").trim();
+          if (!name) return;
+          const resident = RESIDENTS.find(r => r.name === name || r.name.includes(name) || name.includes(r.name.replace("משפחת ", "")));
+          if (!resident) return;
+
+          let paid = false;
+          if (statusCol !== -1) {
+            const status = String(row[statusCol] || "").trim();
+            paid = status === "שולם" || status === "כן" || status === "✓" || status === "V";
+          }
+          // Check if there's an amount > 0 in any numeric column
+          if (!paid) {
+            for (let i = 0; i < row.length; i++) {
+              const val = Number(row[i]);
+              if (val > 0 && val <= 1000 && i !== nameCol) { paid = true; break; }
+            }
+          }
+
+          if (paid) {
+            const method = methodCol !== -1 ? String(row[methodCol] || "").trim() || "יבוא" : "יבוא";
+            const date = dateCol !== -1 && row[dateCol] ? String(row[dateCol]).trim() : new Date().toISOString().split("T")[0];
+            updates.push({ residentId: resident.id, method, date });
+          }
+        });
+
+        if (updates.length === 0) { setError("לא נמצאו תשלומים לייבא. וודא שיש עמודת 'שם' וסטטוס תשלום."); setImporting(false); return; }
+        onImportPayments(updates, currentPeriod);
+        showToast(`יובאו ${updates.length} תשלומים בהצלחה! ✓`);
+        onClose();
+      }
+    } catch (err) { setError("שגיאה ביבוא: " + err.message); }
+    setImporting(false);
+  };
+
+  const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };
+  const modal = { background: "#fff", borderRadius: 24, padding: 24, width: "100%", maxWidth: 440, maxHeight: "85vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" };
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div dir="rtl" style={modal} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744", fontFamily: "var(--f)" }}>📤 יבוא מ-Excel</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#999" }}>✕</button>
+        </div>
+
+        {/* Upload area */}
+        <div
+          onClick={() => fileRef.current?.click()}
+          style={{ border: "2px dashed #c4a882", borderRadius: 16, padding: "28px 20px", textAlign: "center", cursor: "pointer", background: file ? "#f0ebe308" : "#faf8f4", transition: "all 0.2s", marginBottom: 16 }}>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: "none" }} />
+          {file ? (
+            <div>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2744", fontFamily: "var(--f)" }}>{file.name}</div>
+              <div style={{ fontSize: 11, color: "#999", marginTop: 4, fontFamily: "var(--f)" }}>{(file.size / 1024).toFixed(1)} KB · לחץ להחלפה</div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📂</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2744", fontFamily: "var(--f)" }}>לחץ לבחירת קובץ</div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 4, fontFamily: "var(--f)" }}>xlsx, xls, csv</div>
+            </div>
+          )}
+        </div>
+
+        {/* Preview */}
+        {preview && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2744", marginBottom: 8, fontFamily: "var(--f)" }}>
+              תצוגה מקדימה ({preview.rows.length} שורות)
+            </div>
+            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #e8e0d4" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "var(--f)" }}>
+                <thead>
+                  <tr style={{ background: "#f5f0e8" }}>
+                    {preview.headers.map((h, i) => (
+                      <th key={i} style={{ padding: "6px 8px", textAlign: "center", fontWeight: 600, color: "#1a2744", whiteSpace: "nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.rows.slice(0, 5).map((row, ri) => (
+                    <tr key={ri} style={{ borderTop: "1px solid #f0ebe3" }}>
+                      {preview.headers.map((_, ci) => (
+                        <td key={ci} style={{ padding: "5px 8px", textAlign: "center", color: "#666", whiteSpace: "nowrap" }}>{row[ci] ?? ""}</td>
+                      ))}
+                    </tr>
+                  ))}
+                  {preview.rows.length > 5 && (
+                    <tr><td colSpan={preview.headers.length} style={{ padding: 6, textAlign: "center", color: "#999", fontSize: 10 }}>... ועוד {preview.rows.length - 5} שורות</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div style={{ background: "#ffebee", border: "1px solid #ffcdd2", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#c62828", fontFamily: "var(--f)" }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {preview && !error && (
+          <div style={{ background: "#f5f0e8", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12, color: "#666", lineHeight: 1.6, fontFamily: "var(--f)" }}>
+            💡 המערכת תחפש עמודת <strong>שם</strong> ותתאים אוטומטית לדיירים. תשלומים ייובאו לתקופה הנוכחית.
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid #ddd", background: "#fff", color: "#666", cursor: "pointer", fontFamily: "var(--f)", fontSize: 13, fontWeight: 600 }}>ביטול</button>
+          <button onClick={handleImport} disabled={!preview || importing}
+            style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: preview && !importing ? "linear-gradient(135deg,#1a2744,#2d4a7a)" : "#ddd", color: "#fff", cursor: preview ? "pointer" : "default", fontFamily: "var(--f)", fontSize: 13, fontWeight: 600 }}>
+            {importing ? "מייבא..." : "יבא תשלומים ✓"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ===== SIGNATURE PAD ===== */
 function SignaturePad({ onSave, onCancel }) {
@@ -357,6 +579,7 @@ export default function VaadBayit() {
   const [filterEntrance, setFilterEntrance] = useState(null);
   const [paymentPeriod, setPaymentPeriod] = useState(getCurrentPeriodId());
   const [sendingReminder, setSendingReminder] = useState(null);
+  const [showImport, setShowImport] = useState(false);
 
   const isCommittee = user?.role === "committee";
   const currentResident = user ? RESIDENTS.find((r) => r.id === user.id) : null;
@@ -402,6 +625,16 @@ export default function VaadBayit() {
     }, 800);
   };
 
+  const importPayments = (updates, periodId) => {
+    setPayments((prev) => {
+      const next = { ...prev };
+      updates.forEach(({ residentId, method, date }) => {
+        next[residentId] = { ...next[residentId], [periodId]: { date, method } };
+      });
+      return next;
+    });
+  };
+
   const getSigned = (d) => Object.values(d.signatures).filter(Boolean).length;
   const getTotal = (d) => Object.keys(d.signatures).length;
 
@@ -431,6 +664,7 @@ export default function VaadBayit() {
     <div dir="rtl" style={{ "--f": "'Noto Sans Hebrew', sans-serif", minHeight: "100vh", background: "linear-gradient(160deg,#f5f0e8 0%,#ede6da 40%,#e8dfd0 100%)", fontFamily: "var(--f)" }}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       {toast && <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: "#1a2744", color: "#fff", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontFamily: "var(--f)", boxShadow: "0 8px 32px rgba(26,39,68,0.3)", animation: "slideDown 0.3s ease" }}>{toast}</div>}
+      {showImport && <ImportModal onClose={() => setShowImport(false)} onImportPayments={importPayments} currentPeriod={paymentPeriod} showToast={showToast} />}
 
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg,#1a2744 0%,#2d4a7a 100%)", padding: "20px 20px 14px", borderRadius: "0 0 28px 28px", boxShadow: "0 8px 32px rgba(26,39,68,0.25)" }}>
@@ -562,9 +796,17 @@ export default function VaadBayit() {
         {/* ===== PAYMENTS ===== */}
         {page === "payments" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>
-              {isCommittee ? "מעקב תשלומים" : "התשלומים שלי"}
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>
+                {isCommittee ? "מעקב תשלומים" : "התשלומים שלי"}
+              </h2>
+              {isCommittee && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setShowImport(true)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #4a7a5c", background: "#fff", color: "#4a7a5c", cursor: "pointer", fontFamily: "var(--f)", fontSize: 11, fontWeight: 600 }}>📤 יבוא</button>
+                  <button onClick={() => exportPayments(payments, paymentPeriod)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #c4a882", background: "#fff", color: "#8a7050", cursor: "pointer", fontFamily: "var(--f)", fontSize: 11, fontWeight: 600 }}>📥 יצוא</button>
+                </div>
+              )}
+            </div>
 
             {/* Period selector */}
             <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
@@ -904,7 +1146,10 @@ export default function VaadBayit() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>דיירי הבניין</h2>
-              <span style={{ fontSize: 12, color: "#999" }}>18 דירות</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button onClick={exportResidents} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #c4a882", background: "#fff", color: "#8a7050", cursor: "pointer", fontFamily: "var(--f)", fontSize: 11, fontWeight: 600 }}>📥 Excel</button>
+                <span style={{ fontSize: 12, color: "#999" }}>18 דירות</span>
+              </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={() => setFilterEntrance(null)} style={{ padding: "6px 14px", borderRadius: 20, border: !filterEntrance ? "2px solid #1a2744" : "2px solid transparent", background: !filterEntrance ? "#1a274418" : "#f5f0e8", color: !filterEntrance ? "#1a2744" : "#888", cursor: "pointer", fontFamily: "var(--f)", fontSize: 12, fontWeight: 600 }}>הכל</button>

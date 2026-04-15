@@ -418,7 +418,7 @@ function LoginScreen({ onLogin, passwords, onChangePassword }) {
       <div style={{ textAlign: "center", marginBottom: 36 }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>🏢</div>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#fff" }}>ועד הבית</h1>
-        <p style={{ margin: "6px 0 0", fontSize: 14, color: "#c4a882" }}>רחוב הדוגמה 12 · 3 כניסות · 18 דירות</p>
+        <p style={{ margin: "6px 0 0", fontSize: 14, color: "#c4a882" }}>רחוב הנוטר 30 32 34 · 3 כניסות · 18 דירות</p>
       </div>
 
       {/* LOGIN FORM */}

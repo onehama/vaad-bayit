@@ -58,18 +58,10 @@ const isFuturePeriod = (periodId) => {
   return p.months[0] > (now.getMonth() + 1);
 };
 
-/* Pre-populated payment data */
+/* Payment data - empty */
 const initPayments = () => {
   const payments = {};
   RESIDENTS.forEach((r) => { payments[r.id] = {}; });
-  // Period 1 (Jan-Feb): most paid
-  [1,2,3,4,5,7,8,9,10,13,14,15,16,17].forEach(id => {
-    payments[id]["2026-1"] = { date: "2026-02-" + String(5 + (id % 10)).padStart(2,"0"), method: id % 3 === 0 ? "bit" : id % 2 === 0 ? "העברה" : "מזומן" };
-  });
-  // Period 2 (Mar-Apr): some paid (current period)
-  [1,2,5,7,13,14,3,9].forEach(id => {
-    payments[id]["2026-2"] = { date: "2026-03-" + String(8 + (id % 12)).padStart(2,"0"), method: id % 2 === 0 ? "bit" : "העברה" };
-  });
   return payments;
 };
 

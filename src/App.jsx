@@ -596,9 +596,15 @@ export default function VaadBayit() {
     const relevant = newDecision.scope === "all" ? RESIDENTS : RESIDENTS.filter((r) => r.entrance === newDecision.scope);
     relevant.forEach((r) => (sigs[r.id] = null));
     setDecisions((prev) => [{ id: Date.now(), title: newDecision.title, description: newDecision.description, date: new Date().toISOString().split("T")[0], scope: newDecision.scope, status: "active", signatures: sigs }, ...prev]);
+
+    // Copy WhatsApp message
+    const siteUrl = window.location.href.split("?")[0];
+    const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n📋 *${newDecision.title}*\n\n${newDecision.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}`;
+    navigator.clipboard?.writeText(msg);
+
     setNewDecision({ title: "", description: "", scope: "all" });
     setPage("decisions");
-    showToast("ההחלטה נוצרה בהצלחה!");
+    showToast("ההחלטה נוצרה! ההודעה הועתקה ל-WhatsApp 📋");
   };
 
   const markPaid = (residentId, periodId, method) => {
@@ -933,10 +939,16 @@ export default function VaadBayit() {
 
             {/* Committee: send reminders to all unpaid */}
             {isCommittee && unpaidResidents.length > 0 && !isFuturePeriod(paymentPeriod) && (
-              <button onClick={() => { unpaidResidents.forEach(r => sendReminder(r.id)); }}
-                style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#e65100,#ff6d00)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", boxShadow: "0 4px 16px rgba(230,81,0,0.3)" }}>
-                📩 שלח תזכורת ל-{unpaidResidents.length} דיירים שטרם שילמו
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button onClick={() => {
+                  const names = unpaidResidents.map(r => `• ${r.name} (${ENTRANCES.find(e => e.id === r.entrance)?.label}, דירה ${r.apt})`).join("\n");
+                  const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n💰 *תזכורת תשלום ועד בית*\nתקופה: *${curPeriod?.label} ${curPeriod?.year}*\nסכום: *₪${PAYMENT_AMOUNT}*\n\n⚠️ הדיירים הבאים טרם שילמו:\n${names}\n\nנא להסדיר תשלום בהקדם.\nתודה! 🙏`;
+                  navigator.clipboard.writeText(msg).then(() => showToast("תזכורת תשלום הועתקה! 📋"));
+                }}
+                  style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
+                  <span style={{ fontSize: 18 }}>📋</span> העתק תזכורת תשלום ל-WhatsApp
+                </button>
+              </div>
             )}
 
             {/* Committee: yearly summary */}
@@ -1035,6 +1047,18 @@ export default function VaadBayit() {
                   </div>
                 </div>
               </div>
+
+              {/* WhatsApp share - committee only */}
+              {isCommittee && (
+                <button onClick={() => {
+                  const siteUrl = window.location.href.split("?")[0];
+                  const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n📋 *${d.title}*\n\n${d.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}\n\n📊 סטטוס: ${signed} מתוך ${total} חתמו`;
+                  navigator.clipboard.writeText(msg).then(() => showToast("ההודעה הועתקה! הדבק/י בקבוצת WhatsApp 📋"));
+                }}
+                  style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
+                  <span style={{ fontSize: 20 }}>📋</span> העתק הודעה לקבוצת WhatsApp
+                </button>
+              )}
 
               {!isCommittee && user.id in d.signatures && (
                 <div style={{ ...card, border: mySig ? "2px solid #4caf50" : "2px solid #e65100" }}>

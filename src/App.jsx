@@ -954,7 +954,7 @@ export default function VaadBayit() {
                   );
                 })}
                 <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: "#f5f0e8", fontSize: 12, color: "#666", lineHeight: 1.6 }}>
-                  💡 תשלום ועד בית: ₪305 לחודש (₪{PAYMENT_AMOUNT} לחודשיים). לתשלום ניתן לפנות לגזבר הבניין ({RESIDENTS.find(r => r.role === "גזבר")?.name}) או להעביר ב-bit/העברה בנקאית.
+                  💡 תשלום ועד בית: ₪305 לחודש (₪{PAYMENT_AMOUNT} לחודשיים). ניתן לבצע העברה ישירות לחשבון ועד הבית — בנק הפועלים, סניף 568, מס׳ חשבון 164423. נא לעדכן באפליקציה על ההעברה שבוצעה.
                 </div>
               </div>
             )}

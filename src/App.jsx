@@ -32,7 +32,7 @@ const ENTRANCES = [
   { id: "C", label: "כניסה ג׳", color: "#4a7a5c" },
 ];
 
-const RESIDENTS = [
+let RESIDENTS = [
   { id: 1, name: "ישראל רנט", apt: 1, floor: 1, entrance: "A", phone: "050-1234567", isCommittee: true, role: "יו״ר ועד" },
   { id: 2, name: "משפחת לוי", apt: 2, floor: 1, entrance: "A", phone: "052-9876543", isCommittee: true, role: "גזבר" },
   { id: 3, name: "משפחת מזרחי", apt: 3, floor: 2, entrance: "A", phone: "054-5551234" },
@@ -386,7 +386,7 @@ function EntranceBadge({ ent, small }) {
 }
 
 /* ===== LOGIN SCREEN ===== */
-function LoginScreen({ onLogin, passwords, onChangePassword }) {
+function LoginScreen({ onLogin, passwords, onChangePassword, residents }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -407,7 +407,7 @@ function LoginScreen({ onLogin, passwords, onChangePassword }) {
   const handleSubmit = () => {
     setError("");
     const cleanPhone = phone.replace(/[-\s]/g, "");
-    const resident = RESIDENTS.find((r) => r.phone.replace(/[-\s]/g, "") === cleanPhone);
+    const resident = residents.find((r) => r.phone.replace(/[-\s]/g, "") === cleanPhone);
     if (!resident) { setError("מספר טלפון לא נמצא במערכת"); return; }
     const userPass = passwords[resident.id];
     if (password !== userPass.password) { setError("סיסמה שגויה"); return; }
@@ -582,12 +582,24 @@ export default function VaadBayit() {
   const [paymentPeriod, setPaymentPeriod] = useState(getCurrentPeriodId());
   const [sendingReminder, setSendingReminder] = useState(null);
   const [showImport, setShowImport] = useState(false);
+  const [residents, setResidentsList] = useState(RESIDENTS);
   const [dbReady, setDbReady] = useState(false);
 
   /* ===== LOAD FROM SUPABASE ON MOUNT ===== */
   useEffect(() => {
     const load = async () => {
       try {
+        // Load residents
+        const resRows = await supa.get("residents", "select=*&order=id");
+        if (resRows.length > 0) {
+          const mapped = resRows.map((r) => ({
+            id: r.id, name: r.name, apt: r.apt, floor: r.floor,
+            entrance: r.entrance, phone: r.phone,
+            isCommittee: r.is_committee, role: r.role || "",
+          }));
+          RESIDENTS = mapped;
+          setResidentsList(mapped);
+        }
         // Load passwords
         const pwRows = await supa.get("passwords", "select=*");
         if (pwRows.length > 0) {
@@ -699,7 +711,7 @@ export default function VaadBayit() {
       <div style={{ color: "#c4a882", fontSize: 16, fontWeight: 600 }}>טוען נתונים...</div>
     </div>
   );
-  if (!user) return <LoginScreen onLogin={handleLogin} passwords={passwords} onChangePassword={handleChangePassword} />;
+  if (!user) return <LoginScreen onLogin={handleLogin} passwords={passwords} onChangePassword={handleChangePassword} residents={residents} />;
 
   const totalActive = decisions.filter((d) => d.status === "active").length;
   const visibleDecisions = isCommittee ? decisions : decisions.filter((d) => user.id in d.signatures);

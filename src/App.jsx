@@ -54,7 +54,7 @@ let RESIDENTS = [
 ];
 
 /* ===== PAYMENT PERIODS (bi-monthly, 300 NIS) ===== */
-const PAYMENT_AMOUNT = 300;
+const PAYMENT_AMOUNT = 305;
 const PAYMENT_PERIODS = [
   { id: "2026-1", label: "ינואר–פברואר", months: [1, 2], year: 2026 },
   { id: "2026-2", label: "מרץ–אפריל", months: [3, 4], year: 2026 },

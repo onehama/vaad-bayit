@@ -1,4 +1,30 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+
+/* ===== SUPABASE CONFIG ===== */
+const SUPA_URL = "https://kzgskogjfejscqzfbezp.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6Z3Nrb2dqZmVqc2NxemZiZXpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MDY4ODAsImV4cCI6MjA5MjA4Mjg4MH0._M8gswwdueaMSx9pyZzlruKlqqCHieQeLePC0xHCTko";
+const supaHeaders = { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" };
+
+const supa = {
+  async get(table, query = "") {
+    const r = await fetch(`${SUPA_URL}/rest/v1/${table}?${query}`, { headers: supaHeaders });
+    return r.ok ? r.json() : [];
+  },
+  async upsert(table, data) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+      method: "POST", headers: { ...supaHeaders, "Prefer": "return=representation,resolution=merge-duplicates" },
+      body: JSON.stringify(data),
+    });
+    return r.ok ? r.json() : null;
+  },
+  async update(table, match, data) {
+    const params = Object.entries(match).map(([k,v]) => `${k}=eq.${v}`).join("&");
+    const r = await fetch(`${SUPA_URL}/rest/v1/${table}?${params}`, {
+      method: "PATCH", headers: supaHeaders, body: JSON.stringify(data),
+    });
+    return r.ok;
+  },
+};
 
 const ENTRANCES = [
   { id: "A", label: "כניסה א׳", color: "#2d4a7a" },
@@ -56,13 +82,6 @@ const isFuturePeriod = (periodId) => {
   if (!p) return false;
   const now = new Date();
   return p.months[0] > (now.getMonth() + 1);
-};
-
-/* Payment data - empty */
-const initPayments = () => {
-  const payments = {};
-  RESIDENTS.forEach((r) => { payments[r.id] = {}; });
-  return payments;
 };
 
 /* ===== DECISIONS ===== */
@@ -546,15 +565,6 @@ function LoginScreen({ onLogin, passwords, onChangePassword }) {
   );
 }
 
-/* ===== INITIAL PASSWORDS ===== */
-const initPasswords = () => {
-  const p = {};
-  RESIDENTS.forEach((r) => {
-    p[r.id] = { password: r.phone.replace(/[-\s]/g, ""), mustChange: true };
-  });
-  return p;
-};
-
 /* ========================================== */
 /* ========== MAIN APP ===================== */
 /* ========================================== */
@@ -562,8 +572,8 @@ export default function VaadBayit() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [decisions, setDecisions] = useState(INITIAL_DECISIONS);
-  const [payments, setPayments] = useState(initPayments);
-  const [passwords, setPasswords] = useState(initPasswords);
+  const [payments, setPayments] = useState(() => { const p = {}; RESIDENTS.forEach(r => { p[r.id] = {}; }); return p; });
+  const [passwords, setPasswords] = useState({});
   const [selectedDecision, setSelectedDecision] = useState(null);
   const [signingResident, setSigningResident] = useState(null);
   const [newDecision, setNewDecision] = useState({ title: "", description: "", scope: "all" });
@@ -572,22 +582,66 @@ export default function VaadBayit() {
   const [paymentPeriod, setPaymentPeriod] = useState(getCurrentPeriodId());
   const [sendingReminder, setSendingReminder] = useState(null);
   const [showImport, setShowImport] = useState(false);
+  const [dbReady, setDbReady] = useState(false);
+
+  /* ===== LOAD FROM SUPABASE ON MOUNT ===== */
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Load passwords
+        const pwRows = await supa.get("passwords", "select=*");
+        if (pwRows.length > 0) {
+          const pw = {};
+          pwRows.forEach((r) => { pw[r.resident_id] = { password: r.password, mustChange: r.must_change }; });
+          setPasswords(pw);
+        }
+        // Load signatures
+        const sigRows = await supa.get("signatures", "select=*");
+        if (sigRows.length > 0) {
+          setDecisions((prev) => prev.map((d) => {
+            const updated = { ...d.signatures };
+            sigRows.filter((s) => s.decision_id === d.id).forEach((s) => {
+              updated[s.resident_id] = { data: s.signature_data, time: s.signed_at };
+            });
+            return { ...d, signatures: updated };
+          }));
+        }
+        // Load payments
+        const payRows = await supa.get("payments", "select=*");
+        if (payRows.length > 0) {
+          const pay = {};
+          RESIDENTS.forEach((r) => { pay[r.id] = {}; });
+          payRows.forEach((r) => {
+            if (!pay[r.resident_id]) pay[r.resident_id] = {};
+            pay[r.resident_id][r.period_id] = { date: r.paid_date, method: r.method };
+          });
+          setPayments(pay);
+        }
+      } catch (e) { console.error("Supabase load error:", e); }
+      setDbReady(true);
+    };
+    load();
+  }, []);
 
   const isCommittee = user?.role === "committee";
   const currentResident = user ? RESIDENTS.find((r) => r.id === user.id) : null;
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
   const handleLogin = (residentId, role) => { setUser({ id: residentId, role }); setPage("dashboard"); };
   const handleLogout = () => { setUser(null); setPage("dashboard"); setSelectedDecision(null); };
-  const handleChangePassword = (residentId, newPass) => {
+
+  const handleChangePassword = async (residentId, newPass) => {
+    await supa.update("passwords", { resident_id: residentId }, { password: newPass, must_change: false });
     setPasswords((prev) => ({ ...prev, [residentId]: { password: newPass, mustChange: false } }));
   };
 
   const handleSign = (decisionId, residentId, sigData) => {
+    const now = new Date().toISOString();
     setDecisions((prev) => prev.map((d) =>
-      d.id === decisionId ? { ...d, signatures: { ...d.signatures, [residentId]: { data: sigData, time: new Date().toISOString() } } } : d
+      d.id === decisionId ? { ...d, signatures: { ...d.signatures, [residentId]: { data: sigData, time: now } } } : d
     ));
     setSigningResident(null);
     showToast("החתימה נקלטה בהצלחה! ✓");
+    supa.upsert("signatures", { decision_id: decisionId, resident_id: residentId, signature_data: sigData, signed_at: now });
   };
 
   const createDecision = () => {
@@ -597,7 +651,6 @@ export default function VaadBayit() {
     relevant.forEach((r) => (sigs[r.id] = null));
     setDecisions((prev) => [{ id: Date.now(), title: newDecision.title, description: newDecision.description, date: new Date().toISOString().split("T")[0], scope: newDecision.scope, status: "active", signatures: sigs }, ...prev]);
 
-    // Copy WhatsApp message
     const siteUrl = window.location.href.split("?")[0];
     const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n📋 *${newDecision.title}*\n\n${newDecision.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}`;
     navigator.clipboard?.writeText(msg);
@@ -608,11 +661,13 @@ export default function VaadBayit() {
   };
 
   const markPaid = (residentId, periodId, method) => {
+    const date = new Date().toISOString().split("T")[0];
     setPayments((prev) => ({
       ...prev,
-      [residentId]: { ...prev[residentId], [periodId]: { date: new Date().toISOString().split("T")[0], method } },
+      [residentId]: { ...prev[residentId], [periodId]: { date, method } },
     }));
     showToast("תשלום סומן כהתקבל ✓");
+    supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method });
   };
 
   const sendReminder = (residentId) => {
@@ -628,6 +683,7 @@ export default function VaadBayit() {
       const next = { ...prev };
       updates.forEach(({ residentId, method, date }) => {
         next[residentId] = { ...next[residentId], [periodId]: { date, method } };
+        supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method });
       });
       return next;
     });
@@ -636,6 +692,13 @@ export default function VaadBayit() {
   const getSigned = (d) => Object.values(d.signatures).filter(Boolean).length;
   const getTotal = (d) => Object.keys(d.signatures).length;
 
+  if (!dbReady) return (
+    <div dir="rtl" style={{ "--f": "'Noto Sans Hebrew', sans-serif", minHeight: "100vh", background: "linear-gradient(160deg,#1a2744 0%,#2d4a7a 50%,#1a2744 100%)", fontFamily: "var(--f)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
+      <div style={{ color: "#c4a882", fontSize: 16, fontWeight: 600 }}>טוען נתונים...</div>
+    </div>
+  );
   if (!user) return <LoginScreen onLogin={handleLogin} passwords={passwords} onChangePassword={handleChangePassword} />;
 
   const totalActive = decisions.filter((d) => d.status === "active").length;

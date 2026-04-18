@@ -669,7 +669,7 @@ export default function VaadBayit() {
 
     setNewDecision({ title: "", description: "", scope: "all" });
     setPage("decisions");
-    showToast("ההחלטה נוצרה! ההודעה הועתקה ל-WhatsApp 📋");
+    showToast("ההודעה נוצרה והועתקה ל-WhatsApp 📋");
   };
 
   const markPaid = (residentId, periodId, method) => {
@@ -723,14 +723,14 @@ export default function VaadBayit() {
     ? [
         { id: "dashboard", icon: "📊", label: "דשבורד" },
         { id: "payments", icon: "💰", label: "תשלומים" },
-        { id: "decisions", icon: "📋", label: "החלטות" },
+        { id: "decisions", icon: "📋", label: "הודעות" },
         { id: "new", icon: "➕", label: "חדש" },
         { id: "residents", icon: "👥", label: "דיירים" },
       ]
     : [
         { id: "dashboard", icon: "🏠", label: "ראשי" },
         { id: "payments", icon: "💰", label: "תשלומים" },
-        { id: "decisions", icon: "📋", label: "החלטות" },
+        { id: "decisions", icon: "📋", label: "הודעות" },
       ];
 
   return (
@@ -781,7 +781,7 @@ export default function VaadBayit() {
                         const pending = visibleDecisions.filter(d => d.status === "active" && !d.signatures[user.id]).length;
                         const unpaid = PAYMENT_PERIODS.filter(p => !isFuturePeriod(p.id) && !payments[user.id]?.[p.id]).length;
                         const parts = [];
-                        if (pending > 0) parts.push(`${pending} החלטות לחתימה`);
+                        if (pending > 0) parts.push(`${pending} הודעות לחתימה`);
                         if (unpaid > 0) parts.push(`${unpaid} תקופות לתשלום`);
                         return parts.length > 0 ? parts.join(" · ") : "הכל מעודכן! 🎉";
                       })()}
@@ -796,7 +796,7 @@ export default function VaadBayit() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {[
                     { label: "דיירים", value: 18, icon: "👥" },
-                    { label: "החלטות", value: totalActive, icon: "📋" },
+                    { label: "הודעות", value: totalActive, icon: "📋" },
                     { label: "שילמו החודש", value: `${paidCount}/18`, icon: "💰" },
                   ].map((s, i) => (
                     <div key={i} style={{ ...card, padding: "14px 10px", textAlign: "center" }}>
@@ -842,10 +842,10 @@ export default function VaadBayit() {
             )}
 
             <div style={card}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: "#1a2744" }}>{isCommittee ? "החלטות פעילות" : "ממתין לחתימתך"}</h3>
+              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: "#1a2744" }}>{isCommittee ? "הודעות פעילות" : "ממתין לחתימתך"}</h3>
               {(() => {
                 const list = isCommittee ? visibleDecisions.filter(d => d.status === "active") : visibleDecisions.filter(d => d.status === "active" && !d.signatures[user.id]);
-                if (list.length === 0) return <p style={{ fontSize: 13, color: "#999", textAlign: "center", padding: 20 }}>אין החלטות ממתינות 🎉</p>;
+                if (list.length === 0) return <p style={{ fontSize: 13, color: "#999", textAlign: "center", padding: 20 }}>אין הודעות ממתינות 🎉</p>;
                 return list.map((d) => {
                   const signed = getSigned(d), total = getTotal(d);
                   return (
@@ -1071,7 +1071,7 @@ export default function VaadBayit() {
         {/* ===== DECISIONS LIST ===== */}
         {page === "decisions" && !selectedDecision && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>{isCommittee ? "כל ההחלטות" : "ההחלטות שלי"}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>{isCommittee ? "כל ההודעות" : "ההודעות שלי"}</h2>
             {visibleDecisions.map((d) => {
               const signed = getSigned(d), total = getTotal(d), complete = signed === total, mySig = d.signatures[user.id];
               return (
@@ -1141,7 +1141,7 @@ export default function VaadBayit() {
                   {mySig ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e8f5e9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✅</div>
-                      <div><div style={{ fontSize: 13, fontWeight: 600, color: "#2e7d32" }}>חתמת על החלטה זו</div><div style={{ fontSize: 11, color: "#999" }}>{new Date(mySig.time).toLocaleString("he-IL")}</div></div>
+                      <div><div style={{ fontSize: 13, fontWeight: 600, color: "#2e7d32" }}>חתמת על הודעה זו</div><div style={{ fontSize: 11, color: "#999" }}>{new Date(mySig.time).toLocaleString("he-IL")}</div></div>
                     </div>
                   ) : signingResident !== user.id ? (
                     <button onClick={() => setSigningResident(user.id)} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#1a2744,#2d4a7a)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)" }}>חתום עכשיו ✍️</button>
@@ -1206,7 +1206,7 @@ export default function VaadBayit() {
         {/* ===== NEW DECISION (committee) ===== */}
         {page === "new" && isCommittee && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>החלטה חדשה</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>הודעה חדשה</h2>
             <div style={card}>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#1a2744", display: "block", marginBottom: 6 }}>כותרת</label>
@@ -1215,7 +1215,7 @@ export default function VaadBayit() {
               </div>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#1a2744", display: "block", marginBottom: 6 }}>תיאור</label>
-                <textarea value={newDecision.description} onChange={(e) => setNewDecision((p) => ({ ...p, description: e.target.value }))} placeholder="פרט/י את ההחלטה, עלויות, לוח זמנים..." rows={4}
+                <textarea value={newDecision.description} onChange={(e) => setNewDecision((p) => ({ ...p, description: e.target.value }))} placeholder="פרט/י את ההודעה..." rows={4}
                   style={{ width: "100%", padding: "11px 14px", borderRadius: 12, border: "2px solid #e8e0d4", fontSize: 14, fontFamily: "var(--f)", outline: "none", resize: "vertical", boxSizing: "border-box", direction: "rtl", background: "#faf8f4", lineHeight: 1.7 }} />
               </div>
               <div style={{ marginBottom: 18 }}>
@@ -1227,7 +1227,7 @@ export default function VaadBayit() {
                   ))}
                 </div>
               </div>
-              <button onClick={createDecision} disabled={!newDecision.title.trim()} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: newDecision.title.trim() ? "linear-gradient(135deg,#1a2744,#2d4a7a)" : "#ddd", color: "#fff", fontSize: 15, fontWeight: 700, cursor: newDecision.title.trim() ? "pointer" : "default", fontFamily: "var(--f)" }}>צור החלטה ושלח לחתימה 📩</button>
+              <button onClick={createDecision} disabled={!newDecision.title.trim()} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: newDecision.title.trim() ? "linear-gradient(135deg,#1a2744,#2d4a7a)" : "#ddd", color: "#fff", fontSize: 15, fontWeight: 700, cursor: newDecision.title.trim() ? "pointer" : "default", fontFamily: "var(--f)" }}>צור הודעה ושלח לחתימה 📩</button>
             </div>
           </div>
         )}

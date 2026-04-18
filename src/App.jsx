@@ -1115,14 +1115,68 @@ export default function VaadBayit() {
 
               {/* WhatsApp share - committee only */}
               {isCommittee && (
-                <button onClick={() => {
-                  const siteUrl = window.location.href.split("?")[0];
-                  const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n📋 *${d.title}*\n\n${d.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}\n\n📊 סטטוס: ${signed} מתוך ${total} חתמו`;
-                  navigator.clipboard.writeText(msg).then(() => showToast("ההודעה הועתקה! הדבק/י בקבוצת WhatsApp 📋"));
-                }}
-                  style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
-                  <span style={{ fontSize: 20 }}>📋</span> העתק הודעה לקבוצת WhatsApp
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => {
+                    const siteUrl = window.location.href.split("?")[0];
+                    const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n📋 *${d.title}*\n\n${d.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}\n\n📊 סטטוס: ${signed} מתוך ${total} חתמו`;
+                    navigator.clipboard.writeText(msg).then(() => showToast("ההודעה הועתקה! הדבק/י בקבוצת WhatsApp 📋"));
+                  }}
+                    style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
+                    <span style={{ fontSize: 18 }}>📋</span> WhatsApp
+                  </button>
+                  <button onClick={() => {
+                    const rows = grouped.flatMap(g => g.residents.map(r => {
+                      const sig = d.signatures[r.id];
+                      return `<tr>
+                        <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;font-weight:600">${r.name}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center">${ENTRANCES.find(e=>e.id===g.id)?.label}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center">דירה ${r.apt}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center;color:${sig ? '#2e7d32' : '#c62828'}">${sig ? '✓ חתם/ה' : '✗ טרם חתם/ה'}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center;color:#666">${sig ? new Date(sig.time).toLocaleDateString('he-IL') : '—'}</td>
+                      </tr>`;
+                    })).join('');
+                    const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${d.title}</title>
+                      <style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&display=swap');
+                      body{font-family:'Noto Sans Hebrew',sans-serif;max-width:800px;margin:0 auto;padding:40px 30px;color:#1a2744}
+                      @media print{body{padding:20px}button{display:none!important}}</style></head><body>
+                      <div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #1a2744">
+                        <h1 style="margin:0;font-size:24px">🏢 ועד הבית · רחוב הנוטר 30 32 34</h1>
+                        <p style="color:#666;margin:8px 0 0">מסמך הודעה וחתימות</p>
+                      </div>
+                      <div style="background:#f8f6f2;border-radius:12px;padding:24px;margin-bottom:24px">
+                        <h2 style="margin:0 0 8px;font-size:20px">${d.title}</h2>
+                        <p style="color:#666;font-size:13px;margin:0 0 16px">תאריך: ${d.date}</p>
+                        <p style="white-space:pre-line;line-height:1.8;font-size:14px;margin:0">${d.description}</p>
+                      </div>
+                      <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+                        <h3 style="margin:0;font-size:16px">סטטוס חתימות</h3>
+                        <span style="background:${signed===total?'#e8f5e9':'#fff3e0'};color:${signed===total?'#2e7d32':'#e65100'};padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700">${signed} מתוך ${total} חתמו</span>
+                      </div>
+                      <table style="width:100%;border-collapse:collapse;font-size:13px">
+                        <thead><tr style="background:#1a2744;color:#fff">
+                          <th style="padding:10px 14px;text-align:right">שם</th>
+                          <th style="padding:10px 14px;text-align:center">כניסה</th>
+                          <th style="padding:10px 14px;text-align:center">דירה</th>
+                          <th style="padding:10px 14px;text-align:center">סטטוס</th>
+                          <th style="padding:10px 14px;text-align:center">תאריך חתימה</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                      </table>
+                      <div style="margin-top:30px;padding-top:20px;border-top:2px solid #e0e0e0;text-align:center;color:#999;font-size:11px">
+                        מסמך זה הופק מתוך מערכת ועד הבית · ${new Date().toLocaleDateString('he-IL')}
+                      </div>
+                      <div style="text-align:center;margin-top:16px">
+                        <button onclick="window.print()" style="padding:12px 32px;border-radius:10px;border:none;background:#1a2744;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ הדפס / שמור כ-PDF</button>
+                      </div>
+                    </body></html>`;
+                    const w = window.open('', '_blank');
+                    w.document.write(html);
+                    w.document.close();
+                  }}
+                    style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#1a2744,#2d4a7a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(26,39,68,0.3)" }}>
+                    <span style={{ fontSize: 18 }}>📄</span> ייצוא מסמך
+                  </button>
+                </div>
               )}
 
               {!isCommittee && user.id in d.signatures && (

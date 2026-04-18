@@ -580,7 +580,6 @@ export default function VaadBayit() {
   const [toast, setToast] = useState(null);
   const [filterEntrance, setFilterEntrance] = useState(null);
   const [paymentPeriod, setPaymentPeriod] = useState(getCurrentPeriodId());
-  const [sendingReminder, setSendingReminder] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [residents, setResidentsList] = useState(RESIDENTS);
   const [dbReady, setDbReady] = useState(false);
@@ -680,14 +679,6 @@ export default function VaadBayit() {
     }));
     showToast("תשלום סומן כהתקבל ✓");
     supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method });
-  };
-
-  const sendReminder = (residentId) => {
-    setSendingReminder(residentId);
-    setTimeout(() => {
-      setSendingReminder(null);
-      showToast("תזכורת נשלחה בהצלחה! 📩");
-    }, 800);
   };
 
   const importPayments = (updates, periodId) => {
@@ -974,7 +965,6 @@ export default function VaadBayit() {
                   </div>
                   {entRes.map((r) => {
                     const paid = payments[r.id]?.[paymentPeriod];
-                    const isSending = sendingReminder === r.id;
                     return (
                       <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #f5f0e8" }}>
                         <div style={{ width: 32, height: 32, borderRadius: 8, background: paid ? "#e8f5e9" : "#fff3e0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{paid ? "✅" : "⏳"}</div>
@@ -989,10 +979,10 @@ export default function VaadBayit() {
                           <span style={{ fontSize: 10, color: "#4caf50", fontWeight: 600, background: "#e8f5e9", padding: "3px 10px", borderRadius: 8 }}>₪{PAYMENT_AMOUNT} ✓</span>
                         ) : (
                           <div style={{ display: "flex", gap: 4 }}>
-                            <button onClick={() => sendReminder(r.id)}
-                              style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ff9800", background: isSending ? "#fff3e0" : "#fff", color: "#e65100", cursor: "pointer", fontFamily: "var(--f)", fontSize: 10, fontWeight: 600 }}>
-                              {isSending ? "שולח..." : "📩 תזכורת"}
-                            </button>
+                            <a href={`https://wa.me/972${r.phone.replace(/[-\s]/g, "").slice(1)}?text=${encodeURIComponent(`שלום ${r.name},\n\nתזכורת תשלום ועד בית — רחוב הנוטר 30 32 34\nתקופה: ${curPeriod?.label} ${curPeriod?.year}\nסכום: ₪${PAYMENT_AMOUNT}\n\nניתן לבצע העברה לחשבון ועד הבית:\nבנק הפועלים, סניף 568, מס׳ חשבון 164423\n\nנא לעדכן באפליקציה לאחר ביצוע ההעברה.\nתודה! 🙏`)}`} target="_blank" rel="noopener"
+                              style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #25D366", background: "#fff", color: "#128C7E", cursor: "pointer", fontFamily: "var(--f)", fontSize: 10, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center" }}>
+                              💬 WhatsApp
+                            </a>
                             <select
                               onChange={(e) => { if (e.target.value) markPaid(r.id, paymentPeriod, e.target.value); e.target.value = ""; }}
                               style={{ padding: "5px 6px", borderRadius: 6, border: "1px solid #4caf50", background: "#fff", color: "#2e7d32", cursor: "pointer", fontFamily: "var(--f)", fontSize: 10, fontWeight: 600 }}>

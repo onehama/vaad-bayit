@@ -54,7 +54,7 @@ let RESIDENTS = [
 ];
 
 /* ===== PAYMENT PERIODS (bi-monthly, 300 NIS) ===== */
-const PAYMENT_AMOUNT = 305;
+const PAYMENT_AMOUNT = 610; // לחודשיים (305 ₪ לחודש)
 const PAYMENT_PERIODS = [
   { id: "2026-1", label: "ינואר–פברואר", months: [1, 2], year: 2026 },
   { id: "2026-2", label: "מרץ–אפריל", months: [3, 4], year: 2026 },
@@ -902,7 +902,7 @@ export default function VaadBayit() {
                 <div>
                   <div style={{ fontSize: 13, color: "#c4a882" }}>{curPeriod?.label} {curPeriod?.year}</div>
                   <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>₪{PAYMENT_AMOUNT}</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>לכל דירה לתקופה</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>₪305 לחודש · לכל דירה לתקופה</div>
                 </div>
                 {isCommittee && (
                   <div style={{ textAlign: "center" }}>
@@ -954,7 +954,7 @@ export default function VaadBayit() {
                   );
                 })}
                 <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: "#f5f0e8", fontSize: 12, color: "#666", lineHeight: 1.6 }}>
-                  💡 תשלום ועד בית: ₪{PAYMENT_AMOUNT} לכל חודשיים. לתשלום ניתן לפנות לגזבר הבניין ({RESIDENTS.find(r => r.role === "גזבר")?.name}) או להעביר ב-bit/העברה בנקאית.
+                  💡 תשלום ועד בית: ₪305 לחודש (₪{PAYMENT_AMOUNT} לחודשיים). לתשלום ניתן לפנות לגזבר הבניין ({RESIDENTS.find(r => r.role === "גזבר")?.name}) או להעביר ב-bit/העברה בנקאית.
                 </div>
               </div>
             )}

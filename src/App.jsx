@@ -1127,17 +1127,21 @@ export default function VaadBayit() {
                   <button onClick={() => {
                     const rows = grouped.flatMap(g => g.residents.map(r => {
                       const sig = d.signatures[r.id];
+                      const sigImg = sig && sig.data && sig.data.startsWith('data:image')
+                        ? `<img src="${sig.data}" style="height:40px;max-width:150px;object-fit:contain" />`
+                        : (sig ? '✓' : '');
                       return `<tr>
                         <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;font-weight:600">${r.name}</td>
                         <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center">${ENTRANCES.find(e=>e.id===g.id)?.label}</td>
                         <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center">דירה ${r.apt}</td>
                         <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center;color:${sig ? '#2e7d32' : '#c62828'}">${sig ? '✓ חתם/ה' : '✗ טרם חתם/ה'}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center">${sigImg}</td>
                         <td style="padding:10px 14px;border-bottom:1px solid #e0e0e0;text-align:center;color:#666">${sig ? new Date(sig.time).toLocaleDateString('he-IL') : '—'}</td>
                       </tr>`;
                     })).join('');
                     const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${d.title}</title>
                       <style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&display=swap');
-                      body{font-family:'Noto Sans Hebrew',sans-serif;max-width:800px;margin:0 auto;padding:40px 30px;color:#1a2744}
+                      body{font-family:'Noto Sans Hebrew',sans-serif;max-width:900px;margin:0 auto;padding:40px 30px;color:#1a2744}
                       @media print{body{padding:20px}button{display:none!important}}</style></head><body>
                       <div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #1a2744">
                         <h1 style="margin:0;font-size:24px">🏢 ועד הבית · רחוב הנוטר 30 32 34</h1>
@@ -1158,7 +1162,8 @@ export default function VaadBayit() {
                           <th style="padding:10px 14px;text-align:center">כניסה</th>
                           <th style="padding:10px 14px;text-align:center">דירה</th>
                           <th style="padding:10px 14px;text-align:center">סטטוס</th>
-                          <th style="padding:10px 14px;text-align:center">תאריך חתימה</th>
+                          <th style="padding:10px 14px;text-align:center">חתימה</th>
+                          <th style="padding:10px 14px;text-align:center">תאריך</th>
                         </tr></thead>
                         <tbody>${rows}</tbody>
                       </table>

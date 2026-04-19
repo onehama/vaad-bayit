@@ -565,6 +565,60 @@ function LoginScreen({ onLogin, passwords, onChangePassword, residents }) {
   );
 }
 
+/* ===== UPLOAD FORM ===== */
+function UploadForm({ categories, onUpload, formatFileSize }) {
+  const [title, setTitle] = useState("");
+  const [cat, setCat] = useState("כללי");
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  return (
+    <div style={card}>
+      <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: "#1a2744" }}>📤 העלאת מסמך חדש</h3>
+      <div style={{ marginBottom: 12 }}>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="שם המסמך"
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "2px solid #e8e0d4", fontSize: 14, fontFamily: "var(--f)", outline: "none", boxSizing: "border-box", direction: "rtl", background: "#faf8f4" }} />
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {categories.map((c) => (
+          <button key={c} onClick={() => setCat(c)}
+            style={{ padding: "6px 14px", borderRadius: 20, border: cat === c ? "2px solid #1a2744" : "2px solid transparent", background: cat === c ? "#1a274418" : "#f5f0e8", color: cat === c ? "#1a2744" : "#888", cursor: "pointer", fontFamily: "var(--f)", fontSize: 11, fontWeight: 600 }}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <div onClick={() => fileRef.current?.click()}
+        style={{ border: "2px dashed #c4a882", borderRadius: 12, padding: "18px", textAlign: "center", cursor: "pointer", background: "#faf8f4", marginBottom: 12 }}>
+        <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+        {file ? (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2744", fontFamily: "var(--f)" }}>📄 {file.name}</div>
+            <div style={{ fontSize: 11, color: "#999", marginTop: 4, fontFamily: "var(--f)" }}>{formatFileSize(file.size)} · לחץ להחלפה</div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>📂</div>
+            <div style={{ fontSize: 13, color: "#888", fontFamily: "var(--f)" }}>לחץ לבחירת קובץ</div>
+            <div style={{ fontSize: 11, color: "#bbb", marginTop: 2, fontFamily: "var(--f)" }}>PDF, Word, Excel, תמונות</div>
+          </div>
+        )}
+      </div>
+      <button disabled={!file || !title.trim() || uploading}
+        onClick={async () => {
+          setUploading(true);
+          await onUpload(file, title, cat);
+          setTitle(""); setFile(null); setCat("כללי");
+          if (fileRef.current) fileRef.current.value = "";
+          setUploading(false);
+        }}
+        style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: file && title.trim() && !uploading ? "linear-gradient(135deg,#1a2744,#2d4a7a)" : "#ddd", color: "#fff", fontSize: 14, fontWeight: 700, cursor: file && title.trim() ? "pointer" : "default", fontFamily: "var(--f)" }}>
+        {uploading ? "מעלה..." : "העלה מסמך 📤"}
+      </button>
+    </div>
+  );
+}
+
 /* ========================================== */
 /* ========== MAIN APP ===================== */
 /* ========================================== */
@@ -581,6 +635,7 @@ export default function VaadBayit() {
   const [filterEntrance, setFilterEntrance] = useState(null);
   const [paymentPeriod, setPaymentPeriod] = useState(getCurrentPeriodId());
   const [showImport, setShowImport] = useState(false);
+  const [documents, setDocuments] = useState([]);
   const [residents, setResidentsList] = useState(RESIDENTS);
   const [dbReady, setDbReady] = useState(false);
 
@@ -628,6 +683,9 @@ export default function VaadBayit() {
           });
           setPayments(pay);
         }
+        // Load documents
+        const docRows = await supa.get("documents", "select=*&order=created_at.desc");
+        if (docRows.length > 0) setDocuments(docRows);
       } catch (e) { console.error("Supabase load error:", e); }
       setDbReady(true);
     };
@@ -692,6 +750,49 @@ export default function VaadBayit() {
     });
   };
 
+  const DOC_CATEGORIES = ["פרוטוקולים", "חשבוניות", "חוזים", "כללי"];
+
+  const uploadDocument = async (file, title, category) => {
+    try {
+      const ext = file.name.split('.').pop();
+      const fname = `${Date.now()}_${file.name}`;
+      // Upload to storage
+      const uploadRes = await fetch(`${SUPA_URL}/storage/v1/object/documents/${fname}`, {
+        method: "POST",
+        headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) { showToast("שגיאה בהעלאת הקובץ"); return; }
+      // Save to table
+      const doc = await supa.upsert("documents", {
+        title, category, filename: fname, file_size: file.size, uploaded_by: user.id,
+      });
+      if (doc) {
+        setDocuments((prev) => [doc[0], ...prev]);
+        showToast("המסמך הועלה בהצלחה! 📄");
+      }
+    } catch (e) { showToast("שגיאה: " + e.message); }
+  };
+
+  const deleteDocument = async (doc) => {
+    await fetch(`${SUPA_URL}/storage/v1/object/documents/${doc.filename}`, {
+      method: "DELETE", headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` },
+    });
+    await fetch(`${SUPA_URL}/rest/v1/documents?id=eq.${doc.id}`, {
+      method: "DELETE", headers: supaHeaders,
+    });
+    setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+    showToast("המסמך נמחק");
+  };
+
+  const getDocUrl = (filename) => `${SUPA_URL}/storage/v1/object/public/documents/${filename}`;
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
   const getSigned = (d) => Object.values(d.signatures).filter(Boolean).length;
   const getTotal = (d) => Object.keys(d.signatures).length;
 
@@ -716,12 +817,14 @@ export default function VaadBayit() {
         { id: "payments", icon: "💰", label: "תשלומים" },
         { id: "decisions", icon: "📋", label: "הודעות" },
         { id: "new", icon: "➕", label: "חדש" },
+        { id: "docs", icon: "📁", label: "מסמכים" },
         { id: "residents", icon: "👥", label: "דיירים" },
       ]
     : [
         { id: "dashboard", icon: "🏠", label: "ראשי" },
         { id: "payments", icon: "💰", label: "תשלומים" },
         { id: "decisions", icon: "📋", label: "הודעות" },
+        { id: "docs", icon: "📁", label: "מסמכים" },
       ];
 
   return (
@@ -1364,6 +1467,66 @@ export default function VaadBayit() {
                 ))}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ===== DOCUMENTS ===== */}
+        {page === "docs" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>מסמכים</h2>
+              <span style={{ fontSize: 12, color: "#999" }}>{documents.length} מסמכים</span>
+            </div>
+
+            {/* Upload - committee only */}
+            {isCommittee && <UploadForm categories={DOC_CATEGORIES} onUpload={uploadDocument} formatFileSize={formatFileSize} />}
+
+            {/* Documents list by category */}
+            {DOC_CATEGORIES.filter(cat => documents.some(d => d.category === cat)).map((cat) => (
+              <div key={cat} style={card}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "#1a2744" }}>
+                  {cat === "פרוטוקולים" ? "📝" : cat === "חשבוניות" ? "🧾" : cat === "חוזים" ? "📑" : "📄"} {cat}
+                </h3>
+                {documents.filter(d => d.category === cat).map((doc) => {
+                  const ext = doc.filename.split('.').pop().toLowerCase();
+                  const icon = ext === 'pdf' ? '📕' : ['doc','docx'].includes(ext) ? '📘' : ['xls','xlsx'].includes(ext) ? '📗' : ['jpg','jpeg','png'].includes(ext) ? '🖼️' : '📄';
+                  const uploader = residents.find(r => r.id === doc.uploaded_by);
+                  return (
+                    <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f5f0e8" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2744" }}>{doc.title}</div>
+                        <div style={{ fontSize: 10, color: "#999", marginTop: 2 }}>
+                          {formatFileSize(doc.file_size)} · {new Date(doc.created_at).toLocaleDateString('he-IL')}
+                          {uploader ? ` · ${uploader.name}` : ""}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <a href={getDocUrl(doc.filename)} target="_blank" rel="noopener"
+                          style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #c4a882", background: "#fff", color: "#8a7050", fontSize: 10, fontWeight: 600, textDecoration: "none", fontFamily: "var(--f)" }}>
+                          ⬇️ הורד
+                        </a>
+                        {isCommittee && (
+                          <button onClick={() => { if (confirm("למחוק את המסמך?")) deleteDocument(doc); }}
+                            style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ffcdd2", background: "#fff", color: "#c62828", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "var(--f)" }}>
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* Empty state */}
+            {documents.length === 0 && (
+              <div style={{ ...card, textAlign: "center", padding: 40 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
+                <div style={{ fontSize: 14, color: "#999" }}>עדיין אין מסמכים</div>
+                {isCommittee && <div style={{ fontSize: 12, color: "#bbb", marginTop: 4 }}>העלה את המסמך הראשון למעלה</div>}
+              </div>
+            )}
           </div>
         )}
       </div>

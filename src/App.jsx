@@ -1181,6 +1181,53 @@ export default function VaadBayit() {
                     style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#1a2744,#2d4a7a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(26,39,68,0.3)" }}>
                     <span style={{ fontSize: 18 }}>📄</span> ייצוא מסמך
                   </button>
+                  <button onClick={() => {
+                    const rows = grouped.flatMap(g => g.residents.map(r => {
+                      const sig = d.signatures[r.id];
+                      const sigImg = sig && sig.data && sig.data.startsWith('data:image')
+                        ? `<img src="${sig.data}" style="height:40px;max-width:150px;object-fit:contain" />`
+                        : (sig ? '✓' : '');
+                      return `<tr>
+                        <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;font-weight:600">${r.name}</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;text-align:center">${ENTRANCES.find(e=>e.id===g.id)?.label}</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;text-align:center">דירה ${r.apt}</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;text-align:center;color:${sig ? '#2e7d32' : '#c62828'}">${sig ? '✓ חתם/ה' : '✗ טרם'}</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;text-align:center">${sigImg}</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;text-align:center;color:#666">${sig ? new Date(sig.time).toLocaleDateString('he-IL') : '—'}</td>
+                      </tr>`;
+                    })).join('');
+                    const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${d.title}</title>
+                      <style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&display=swap');
+                      body{font-family:'Noto Sans Hebrew',sans-serif;max-width:900px;margin:0 auto;padding:30px 20px;color:#1a2744;font-size:12px}
+                      @media print{body{padding:10px}}</style></head><body>
+                      <div style="text-align:center;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid #1a2744">
+                        <h1 style="margin:0;font-size:20px">🏢 ועד הבית · רחוב הנוטר 30 32 34</h1>
+                      </div>
+                      <div style="background:#f8f6f2;border-radius:10px;padding:18px;margin-bottom:18px">
+                        <h2 style="margin:0 0 6px;font-size:17px">${d.title}</h2>
+                        <p style="color:#666;font-size:12px;margin:0 0 12px">תאריך: ${d.date} · ${signed} מתוך ${total} חתמו</p>
+                        <p style="white-space:pre-line;line-height:1.7;font-size:13px;margin:0">${d.description}</p>
+                      </div>
+                      <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <thead><tr style="background:#1a2744;color:#fff">
+                          <th style="padding:8px 12px;text-align:right">שם</th>
+                          <th style="padding:8px 12px;text-align:center">כניסה</th>
+                          <th style="padding:8px 12px;text-align:center">דירה</th>
+                          <th style="padding:8px 12px;text-align:center">סטטוס</th>
+                          <th style="padding:8px 12px;text-align:center">חתימה</th>
+                          <th style="padding:8px 12px;text-align:center">תאריך</th>
+                        </tr></thead><tbody>${rows}</tbody>
+                      </table>
+                      <div style="margin-top:20px;text-align:center;color:#999;font-size:10px">מערכת ועד הבית · ${new Date().toLocaleDateString('he-IL')}</div>
+                      <script>window.onload=function(){window.print()}<\/script>
+                    </body></html>`;
+                    const w = window.open('', '_blank');
+                    w.document.write(html);
+                    w.document.close();
+                  }}
+                    style={{ flex: 1, padding: "14px", borderRadius: 14, border: "2px solid #1a2744", background: "#fff", color: "#1a2744", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>🖨️</span> הדפסה
+                  </button>
                 </div>
               )}
 

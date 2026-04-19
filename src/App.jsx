@@ -754,15 +754,15 @@ export default function VaadBayit() {
 
   const uploadDocument = async (file, title, category) => {
     try {
-      const ext = file.name.split('.').pop();
-      const fname = `${Date.now()}_${file.name}`;
+      const ext = file.name.split('.').pop().toLowerCase();
+      const fname = `${Date.now()}.${ext}`;
       // Upload to storage
       const uploadRes = await fetch(`${SUPA_URL}/storage/v1/object/documents/${fname}`, {
         method: "POST",
-        headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": file.type },
+        headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": file.type || "application/octet-stream", "x-upsert": "true" },
         body: file,
       });
-      if (!uploadRes.ok) { showToast("שגיאה בהעלאת הקובץ"); return; }
+      if (!uploadRes.ok) { const err = await uploadRes.text(); console.error("Upload error:", err); showToast("שגיאה בהעלאת הקובץ"); return; }
       // Save to table
       const doc = await supa.upsert("documents", {
         title, category, filename: fname, file_size: file.size, uploaded_by: user.id,

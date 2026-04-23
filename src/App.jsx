@@ -750,7 +750,7 @@ export default function VaadBayit() {
     });
   };
 
-  const DOC_CATEGORIES = ["פרוטוקולים", "חשבוניות", "חוזים", "כללי"];
+  const DOC_CATEGORIES = ["פרוטוקולים", "חשבוניות", "חוזים", "כללי", "דיירים"];
 
   const uploadDocument = async (file, title, category) => {
     try {
@@ -1475,17 +1475,17 @@ export default function VaadBayit() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2744" }}>מסמכים</h2>
-              <span style={{ fontSize: 12, color: "#999" }}>{documents.length} מסמכים</span>
+              <span style={{ fontSize: 12, color: "#999" }}>{(isCommittee ? documents : documents.filter(d => d.category === "דיירים")).length} מסמכים</span>
             </div>
 
             {/* Upload - committee only */}
             {isCommittee && <UploadForm categories={DOC_CATEGORIES} onUpload={uploadDocument} formatFileSize={formatFileSize} />}
 
             {/* Documents list by category */}
-            {DOC_CATEGORIES.filter(cat => documents.some(d => d.category === cat)).map((cat) => (
+            {(isCommittee ? DOC_CATEGORIES : ["דיירים"]).filter(cat => documents.some(d => d.category === cat)).map((cat) => (
               <div key={cat} style={card}>
                 <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "#1a2744" }}>
-                  {cat === "פרוטוקולים" ? "📝" : cat === "חשבוניות" ? "🧾" : cat === "חוזים" ? "📑" : "📄"} {cat}
+                  {cat === "פרוטוקולים" ? "📝" : cat === "חשבוניות" ? "🧾" : cat === "חוזים" ? "📑" : cat === "דיירים" ? "👥" : "📄"} {cat}
                 </h3>
                 {documents.filter(d => d.category === cat).map((doc) => {
                   const ext = doc.filename.split('.').pop().toLowerCase();
@@ -1520,7 +1520,7 @@ export default function VaadBayit() {
             ))}
 
             {/* Empty state */}
-            {documents.length === 0 && (
+            {(isCommittee ? documents.length === 0 : !documents.some(d => d.category === "דיירים")) && (
               <div style={{ ...card, textAlign: "center", padding: 40 }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
                 <div style={{ fontSize: 14, color: "#999" }}>עדיין אין מסמכים</div>

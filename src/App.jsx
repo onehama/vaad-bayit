@@ -54,7 +54,12 @@ let RESIDENTS = [
 ];
 
 /* ===== PAYMENT PERIODS (bi-monthly, 300 NIS) ===== */
-const PAYMENT_AMOUNT = 610; // לחודשיים (305 ₪ לחודש)
+const getPaymentAmount = (periodId) => {
+  // ינואר-פברואר 2026: 610 (305 לחודש). ממרץ-אפריל: 500 (250 לחודש)
+  return periodId === "2026-1" ? 610 : 500;
+};
+const PAYMENT_AMOUNT_MONTHLY = 250;
+const PAYMENT_AMOUNT = 500; // ברירת מחדל לתקופה נוכחית
 const PAYMENT_PERIODS = [
   { id: "2026-1", label: "ינואר–פברואר", months: [1, 2], year: 2026 },
   { id: "2026-2", label: "מרץ–אפריל", months: [3, 4], year: 2026 },
@@ -908,7 +913,7 @@ export default function VaadBayit() {
                       <div style={{ fontSize: 28 }}>⚠️</div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#e65100" }}>תזכורת תשלום · {curPeriod?.label}</div>
-                        <div style={{ fontSize: 12, color: "#bf360c", marginTop: 2 }}>{unpaidResidents.length} דיירים טרם שילמו ₪{PAYMENT_AMOUNT} לתקופה</div>
+                        <div style={{ fontSize: 12, color: "#bf360c", marginTop: 2 }}>{unpaidResidents.length} דיירים טרם שילמו ₪{getPaymentAmount(paymentPeriod)} לתקופה</div>
                       </div>
                       <div style={{ fontSize: 18, color: "#e65100" }}>‹</div>
                     </div>
@@ -995,8 +1000,8 @@ export default function VaadBayit() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 13, color: "#c4a882" }}>{curPeriod?.label} {curPeriod?.year}</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>₪{PAYMENT_AMOUNT}</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>₪305 לחודש · לכל דירה לתקופה</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>₪{getPaymentAmount(paymentPeriod)}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>₪{paymentPeriod === "2026-1" ? 305 : 250} לחודש · לכל דירה לתקופה</div>
                 </div>
                 {isCommittee && (
                   <div style={{ textAlign: "center" }}>
@@ -1008,9 +1013,9 @@ export default function VaadBayit() {
               {isCommittee && (
                 <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                   {[
-                    { label: "שילמו", value: `₪${RESIDENTS.filter(r => payments[r.id]?.[paymentPeriod]).length * PAYMENT_AMOUNT}`, color: "#4caf50" },
-                    { label: "חסר", value: `₪${RESIDENTS.filter(r => !payments[r.id]?.[paymentPeriod]).length * PAYMENT_AMOUNT}`, color: "#ff9800" },
-                    { label: "סה״כ צפוי", value: `₪${18 * PAYMENT_AMOUNT}`, color: "#fff" },
+                    { label: "שילמו", value: `₪${RESIDENTS.filter(r => payments[r.id]?.[paymentPeriod]).length * getPaymentAmount(paymentPeriod)}`, color: "#4caf50" },
+                    { label: "חסר", value: `₪${RESIDENTS.filter(r => !payments[r.id]?.[paymentPeriod]).length * getPaymentAmount(paymentPeriod)}`, color: "#ff9800" },
+                    { label: "סה״כ צפוי", value: `₪${18 * getPaymentAmount(paymentPeriod)}`, color: "#fff" },
                   ].map((s, i) => (
                     <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: "rgba(255,255,255,0.1)" }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: s.color }}>{s.value}</div>
@@ -1039,16 +1044,16 @@ export default function VaadBayit() {
                           <div style={{ fontSize: 11, color: "#4caf50", marginTop: 2 }}>שולם · {paid.date} · {paid.method}</div>
                         ) : (
                           <div style={{ fontSize: 11, color: isCurrent ? "#e65100" : "#d32f2f", marginTop: 2 }}>
-                            {isCurrent ? "⚠️ תזכורת: נא להעביר ₪" + PAYMENT_AMOUNT + " לתקופה" : "לא שולם"}
+                            {isCurrent ? "⚠️ תזכורת: נא להעביר ₪" + getPaymentAmount(p.id) + " לתקופה" : "לא שולם"}
                           </div>
                         )}
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: paid ? "#4caf50" : "#999" }}>₪{PAYMENT_AMOUNT}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: paid ? "#4caf50" : "#999" }}>₪{getPaymentAmount(p.id)}</div>
                     </div>
                   );
                 })}
                 <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: "#f5f0e8", fontSize: 12, color: "#666", lineHeight: 1.6 }}>
-                  💡 תשלום ועד בית: ₪305 לחודש (₪{PAYMENT_AMOUNT} לחודשיים). ניתן לבצע העברה ישירות לחשבון ועד הבית — בנק הפועלים, סניף 568, מס׳ חשבון 164423. נא לעדכן באפליקציה על ההעברה שבוצעה.
+                  💡 תשלום ועד בית: ₪250 לחודש (₪500 לחודשיים, החל ממרץ 2026). ניתן לבצע העברה ישירות לחשבון ועד הבית — בנק הפועלים, סניף 568, מס׳ חשבון 164423. נא לעדכן באפליקציה על ההעברה שבוצעה.
                 </div>
               </div>
             )}
@@ -1079,10 +1084,10 @@ export default function VaadBayit() {
                           </div>
                         </div>
                         {paid ? (
-                          <span style={{ fontSize: 10, color: "#4caf50", fontWeight: 600, background: "#e8f5e9", padding: "3px 10px", borderRadius: 8 }}>₪{PAYMENT_AMOUNT} ✓</span>
+                          <span style={{ fontSize: 10, color: "#4caf50", fontWeight: 600, background: "#e8f5e9", padding: "3px 10px", borderRadius: 8 }}>₪{getPaymentAmount(paymentPeriod)} ✓</span>
                         ) : (
                           <div style={{ display: "flex", gap: 4 }}>
-                            <a href={`https://wa.me/972${r.phone.replace(/[-\s]/g, "").slice(1)}?text=${encodeURIComponent(`שלום ${r.name},\n\nתזכורת תשלום ועד בית — רחוב הנוטר 30 32 34\nתקופה: ${curPeriod?.label} ${curPeriod?.year}\nסכום: ₪${PAYMENT_AMOUNT}\n\nניתן לבצע העברה לחשבון ועד הבית:\nבנק הפועלים, סניף 568, מס׳ חשבון 164423\n\nנא לעדכן באפליקציה לאחר ביצוע ההעברה.\nתודה! 🙏`)}`} target="_blank" rel="noopener"
+                            <a href={`https://wa.me/972${r.phone.replace(/[-\s]/g, "").slice(1)}?text=${encodeURIComponent(`שלום ${r.name},\n\nתזכורת תשלום ועד בית — רחוב הנוטר 30 32 34\nתקופה: ${curPeriod?.label} ${curPeriod?.year}\nסכום: ₪${getPaymentAmount(paymentPeriod)}\n\nניתן לבצע העברה לחשבון ועד הבית:\nבנק הפועלים, סניף 568, מס׳ חשבון 164423\n\nנא לעדכן באפליקציה לאחר ביצוע ההעברה.\nתודה! 🙏`)}`} target="_blank" rel="noopener"
                               style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #25D366", background: "#fff", color: "#128C7E", cursor: "pointer", fontFamily: "var(--f)", fontSize: 10, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center" }}>
                               💬 WhatsApp
                             </a>
@@ -1110,7 +1115,7 @@ export default function VaadBayit() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => {
                   const names = unpaidResidents.map(r => `• ${r.name} (${ENTRANCES.find(e => e.id === r.entrance)?.label}, דירה ${r.apt})`).join("\n");
-                  const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n💰 *תזכורת תשלום ועד בית*\nתקופה: *${curPeriod?.label} ${curPeriod?.year}*\nסכום: *₪${PAYMENT_AMOUNT}*\n\n⚠️ הדיירים הבאים טרם שילמו:\n${names}\n\nנא להסדיר תשלום בהקדם.\nתודה! 🙏`;
+                  const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n💰 *תזכורת תשלום ועד בית*\nתקופה: *${curPeriod?.label} ${curPeriod?.year}*\nסכום: *₪${getPaymentAmount(paymentPeriod)}*\n\n⚠️ הדיירים הבאים טרם שילמו:\n${names}\n\nנא להסדיר תשלום בהקדם.\nתודה! 🙏`;
                   navigator.clipboard.writeText(msg).then(() => showToast("תזכורת תשלום הועתקה! 📋"));
                 }}
                   style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
@@ -1149,7 +1154,7 @@ export default function VaadBayit() {
                                 </td>
                               );
                             })}
-                            <td style={{ textAlign: "center", padding: "7px 4px", fontWeight: 700, color: "#1a2744" }}>₪{paidPeriods * PAYMENT_AMOUNT}</td>
+                            <td style={{ textAlign: "center", padding: "7px 4px", fontWeight: 700, color: "#1a2744" }}>₪{PAYMENT_PERIODS.reduce((sum, p) => sum + (payments[r.id]?.[p.id] ? getPaymentAmount(p.id) : 0), 0)}</td>
                           </tr>
                         );
                       })}

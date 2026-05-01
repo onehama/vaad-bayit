@@ -583,13 +583,13 @@ function ReportPayment({ user, currentResident, residents, payments, PAYMENT_PER
     const periodLabels = periodsToReport.map(pid => PAYMENT_PERIODS.find(p => p.id === pid)?.label).join(", ");
     const totalAmount = periodsToReport.reduce((sum, pid) => sum + getPaymentAmount(pid), 0);
     const msg = encodeURIComponent(`שלום,\n\nאני ${currentResident?.name} (${ENTRANCES.find(e => e.id === currentResident?.entrance)?.label}, דירה ${currentResident?.apt}).\n\nמדווח/ת על ביצוע העברה בנקאית לחשבון ועד הבית:\nתקופה: ${periodLabels}\nסכום: ₪${totalAmount}\n\nתודה! 🙏`);
-    const firstCommittee = committeeMembers[0];
-    const cleanPhone = firstCommittee.phone.replace(/[-\s]/g, "");
+    const reportTarget = residents.find(r => r.name === "ישראל רנד") || committeeMembers[0];
+    const cleanPhone = reportTarget.phone.replace(/[-\s]/g, "");
     window.open(`https://wa.me/972${cleanPhone.slice(1)}?text=${msg}`, '_blank');
     periodsToReport.forEach(pid => { markPaid(user.id, pid, "ממתין לאישור"); });
     setShowSelector(false);
     setSelectedPeriods([]);
-    showToast(`דיווח נשלח ל${firstCommittee.name}. ממתין לאישור הועד ⏳`);
+    showToast(`דיווח נשלח לישראל רנד. ממתין לאישור הועד ⏳`);
   };
 
   return (
@@ -632,7 +632,7 @@ function ReportPayment({ user, currentResident, residents, payments, PAYMENT_PER
         </div>
       )}
       <div style={{ fontSize: 10, color: "#999", marginTop: 8, lineHeight: 1.5 }}>
-        ההודעה תישלח ל: {committeeMembers.map(m => m.name + (m.role ? ` (${m.role})` : "")).join(", ")}
+        ההודעה תישלח ל: ישראל רנד
       </div>
     </div>
   );

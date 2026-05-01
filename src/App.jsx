@@ -1055,6 +1055,46 @@ export default function VaadBayit() {
                 <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: "#f5f0e8", fontSize: 12, color: "#666", lineHeight: 1.6 }}>
                   💡 תשלום ועד בית: ₪250 לחודש (₪500 לחודשיים, החל ממרץ 2026). ניתן לבצע העברה ישירות לחשבון ועד הבית — בנק הפועלים, סניף 568, מס׳ חשבון 164423. נא לעדכן באפליקציה על ההעברה שבוצעה.
                 </div>
+
+                {/* Report payment button */}
+                {(() => {
+                  const unpaidPeriods = PAYMENT_PERIODS.filter(p => !isFuturePeriod(p.id) && !payments[user.id]?.[p.id]);
+                  if (unpaidPeriods.length === 0) return null;
+                  const committeeMembers = residents.filter(r => r.isCommittee);
+                  const reportMsg = (method) => {
+                    const msg = `שלום,\n\nאני ${currentResident?.name} (${ENTRANCES.find(e => e.id === currentResident?.entrance)?.label}, דירה ${currentResident?.apt}).\n\nמדווח/ת על ביצוע תשלום ועד בית:\nתקופה: ${curPeriod?.label} ${curPeriod?.year}\nסכום: ₪${getPaymentAmount(paymentPeriod)}\nאמצעי: ${method}\n\nתודה! 🙏`;
+                    return encodeURIComponent(msg);
+                  };
+                  return (
+                    <div style={{ marginTop: 12 }}>
+                      <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#1a2744" }}>📢 דיווח על תשלום</h3>
+                      <p style={{ fontSize: 12, color: "#666", margin: "0 0 10px", lineHeight: 1.5 }}>ביצעת תשלום? בחר/י אמצעי תשלום ושלח/י הודעה לועד:</p>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                        {["העברה בנקאית", "bit", "מזומן", "צ׳ק"].map((method) => (
+                          <button key={method} onClick={() => {
+                            const msg = reportMsg(method);
+                            const phones = committeeMembers.map(m => {
+                              const cleanPhone = m.phone.replace(/[-\s]/g, "");
+                              return `https://wa.me/972${cleanPhone.slice(1)}?text=${msg}`;
+                            });
+                            // Open first committee member's WhatsApp
+                            window.open(phones[0], '_blank');
+                            // Copy message for others
+                            const plainMsg = decodeURIComponent(msg);
+                            navigator.clipboard?.writeText(plainMsg);
+                            showToast(`WhatsApp נפתח ל${committeeMembers[0]?.name}. ההודעה הועתקה גם ללוח 📋`);
+                          }}
+                            style={{ padding: "10px 14px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", gap: 6 }}>
+                            💬 {method}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 10, color: "#999", lineHeight: 1.5 }}>
+                        ההודעה תישלח ל: {committeeMembers.map(m => m.name + (m.role ? ` (${m.role})` : "")).join(", ")}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

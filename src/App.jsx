@@ -570,6 +570,74 @@ function LoginScreen({ onLogin, passwords, onChangePassword, residents }) {
   );
 }
 
+/* ===== REPORT PAYMENT ===== */
+function ReportPayment({ user, currentResident, residents, payments, PAYMENT_PERIODS, ENTRANCES, getPaymentAmount, isFuturePeriod, markPaid, showToast, curPeriod, paymentPeriod }) {
+  const [selectedPeriods, setSelectedPeriods] = useState([]);
+  const [showSelector, setShowSelector] = useState(false);
+
+  const unpaidPeriods = PAYMENT_PERIODS.filter(p => !isFuturePeriod(p.id) && !payments[user.id]?.[p.id]);
+  if (unpaidPeriods.length === 0) return null;
+  const committeeMembers = residents.filter(r => r.isCommittee);
+
+  const doReport = (periodsToReport) => {
+    const periodLabels = periodsToReport.map(pid => PAYMENT_PERIODS.find(p => p.id === pid)?.label).join(", ");
+    const totalAmount = periodsToReport.reduce((sum, pid) => sum + getPaymentAmount(pid), 0);
+    const msg = encodeURIComponent(`שלום,\n\nאני ${currentResident?.name} (${ENTRANCES.find(e => e.id === currentResident?.entrance)?.label}, דירה ${currentResident?.apt}).\n\nמדווח/ת על ביצוע העברה בנקאית לחשבון ועד הבית:\nתקופה: ${periodLabels}\nסכום: ₪${totalAmount}\n\nתודה! 🙏`);
+    const firstCommittee = committeeMembers[0];
+    const cleanPhone = firstCommittee.phone.replace(/[-\s]/g, "");
+    window.open(`https://wa.me/972${cleanPhone.slice(1)}?text=${msg}`, '_blank');
+    periodsToReport.forEach(pid => { markPaid(user.id, pid, "ממתין לאישור"); });
+    setShowSelector(false);
+    setSelectedPeriods([]);
+    showToast(`דיווח נשלח ל${firstCommittee.name}. ממתין לאישור הועד ⏳`);
+  };
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#1a2744" }}>📢 דיווח על תשלום</h3>
+      {!showSelector ? (
+        <button onClick={() => { if (unpaidPeriods.length === 1) { doReport([unpaidPeriods[0].id]); } else { setShowSelector(true); } }}
+          style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
+          💬 דיווח על העברה בנקאית
+        </button>
+      ) : (
+        <div style={{ background: "#faf8f4", borderRadius: 14, padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#1a2744", margin: "0 0 10px" }}>בחר/י תקופות לדיווח:</p>
+          {unpaidPeriods.map((p) => {
+            const sel = selectedPeriods.includes(p.id);
+            return (
+              <div key={p.id} onClick={() => setSelectedPeriods(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id])}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 6, borderRadius: 10, background: sel ? "#e8f5e9" : "#fff", border: sel ? "2px solid #4caf50" : "2px solid #e8e0d4", cursor: "pointer" }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, border: sel ? "2px solid #4caf50" : "2px solid #ccc", background: sel ? "#4caf50" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 700 }}>
+                  {sel ? "✓" : ""}
+                </div>
+                <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#1a2744" }}>{p.label} {p.year}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2744" }}>₪{getPaymentAmount(p.id)}</div>
+              </div>
+            );
+          })}
+          {selectedPeriods.length > 0 && (
+            <div style={{ fontSize: 12, color: "#666", textAlign: "center", margin: "8px 0", fontWeight: 600 }}>
+              סה״כ: ₪{selectedPeriods.reduce((sum, pid) => sum + getPaymentAmount(pid), 0)}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button onClick={() => { setShowSelector(false); setSelectedPeriods([]); }}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", color: "#666", cursor: "pointer", fontFamily: "var(--f)", fontSize: 13, fontWeight: 600 }}>ביטול</button>
+            <button disabled={selectedPeriods.length === 0} onClick={() => doReport(selectedPeriods)}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: selectedPeriods.length > 0 ? "linear-gradient(135deg,#25D366,#128C7E)" : "#ddd", color: "#fff", cursor: selectedPeriods.length > 0 ? "pointer" : "default", fontFamily: "var(--f)", fontSize: 13, fontWeight: 700 }}>
+              💬 שלח דיווח
+            </button>
+          </div>
+        </div>
+      )}
+      <div style={{ fontSize: 10, color: "#999", marginTop: 8, lineHeight: 1.5 }}>
+        ההודעה תישלח ל: {committeeMembers.map(m => m.name + (m.role ? ` (${m.role})` : "")).join(", ")}
+      </div>
+    </div>
+  );
+}
+
 /* ===== UPLOAD FORM ===== */
 function UploadForm({ categories, onUpload, formatFileSize }) {
   const [title, setTitle] = useState("");
@@ -1032,15 +1100,18 @@ export default function VaadBayit() {
                 <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: "#1a2744" }}>היסטוריית תשלומים</h3>
                 {PAYMENT_PERIODS.filter(p => !isFuturePeriod(p.id)).map((p) => {
                   const paid = payments[user.id]?.[p.id];
+                  const isPending = paid?.method === "ממתין לאישור";
                   const isCurrent = p.id === getCurrentPeriodId();
                   return (
                     <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: "1px solid #f5f0e8" }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 10, background: paid ? "#e8f5e9" : isCurrent ? "#fff3e0" : "#ffebee", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-                        {paid ? "✅" : isCurrent ? "⏰" : "❌"}
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: isPending ? "#fff8e1" : paid ? "#e8f5e9" : isCurrent ? "#fff3e0" : "#ffebee", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                        {isPending ? "⏳" : paid ? "✅" : isCurrent ? "⏰" : "❌"}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2744" }}>{p.label} {p.year}</div>
-                        {paid ? (
+                        {isPending ? (
+                          <div style={{ fontSize: 11, color: "#f57f17", marginTop: 2 }}>ממתין לאישור הועד · דווח {paid.date}</div>
+                        ) : paid ? (
                           <div style={{ fontSize: 11, color: "#4caf50", marginTop: 2 }}>שולם · {paid.date} · {paid.method}</div>
                         ) : (
                           <div style={{ fontSize: 11, color: isCurrent ? "#e65100" : "#d32f2f", marginTop: 2 }}>
@@ -1048,7 +1119,7 @@ export default function VaadBayit() {
                           </div>
                         )}
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: paid ? "#4caf50" : "#999" }}>₪{getPaymentAmount(p.id)}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: isPending ? "#f57f17" : paid ? "#4caf50" : "#999" }}>₪{getPaymentAmount(p.id)}</div>
                     </div>
                   );
                 })}
@@ -1056,45 +1127,7 @@ export default function VaadBayit() {
                   💡 תשלום ועד בית: ₪250 לחודש (₪500 לחודשיים, החל ממרץ 2026). ניתן לבצע העברה ישירות לחשבון ועד הבית — בנק הפועלים, סניף 568, מס׳ חשבון 164423. נא לעדכן באפליקציה על ההעברה שבוצעה.
                 </div>
 
-                {/* Report payment button */}
-                {(() => {
-                  const unpaidPeriods = PAYMENT_PERIODS.filter(p => !isFuturePeriod(p.id) && !payments[user.id]?.[p.id]);
-                  if (unpaidPeriods.length === 0) return null;
-                  const committeeMembers = residents.filter(r => r.isCommittee);
-                  const reportMsg = (method) => {
-                    const msg = `שלום,\n\nאני ${currentResident?.name} (${ENTRANCES.find(e => e.id === currentResident?.entrance)?.label}, דירה ${currentResident?.apt}).\n\nמדווח/ת על ביצוע תשלום ועד בית:\nתקופה: ${curPeriod?.label} ${curPeriod?.year}\nסכום: ₪${getPaymentAmount(paymentPeriod)}\nאמצעי: ${method}\n\nתודה! 🙏`;
-                    return encodeURIComponent(msg);
-                  };
-                  return (
-                    <div style={{ marginTop: 12 }}>
-                      <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#1a2744" }}>📢 דיווח על תשלום</h3>
-                      <p style={{ fontSize: 12, color: "#666", margin: "0 0 10px", lineHeight: 1.5 }}>ביצעת תשלום? בחר/י אמצעי תשלום ושלח/י הודעה לועד:</p>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                        {["העברה בנקאית", "bit", "מזומן", "צ׳ק"].map((method) => (
-                          <button key={method} onClick={() => {
-                            const msg = reportMsg(method);
-                            const phones = committeeMembers.map(m => {
-                              const cleanPhone = m.phone.replace(/[-\s]/g, "");
-                              return `https://wa.me/972${cleanPhone.slice(1)}?text=${msg}`;
-                            });
-                            // Open first committee member's WhatsApp
-                            window.open(phones[0], '_blank');
-                            // Copy message for others
-                            const plainMsg = decodeURIComponent(msg);
-                            navigator.clipboard?.writeText(plainMsg);
-                            showToast(`WhatsApp נפתח ל${committeeMembers[0]?.name}. ההודעה הועתקה גם ללוח 📋`);
-                          }}
-                            style={{ padding: "10px 14px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#25D366,#128C7E)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--f)", display: "flex", alignItems: "center", gap: 6 }}>
-                            💬 {method}
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: 10, color: "#999", lineHeight: 1.5 }}>
-                        ההודעה תישלח ל: {committeeMembers.map(m => m.name + (m.role ? ` (${m.role})` : "")).join(", ")}
-                      </div>
-                    </div>
-                  );
-                })()}
+                <ReportPayment user={user} currentResident={currentResident} residents={residents} payments={payments} PAYMENT_PERIODS={PAYMENT_PERIODS} ENTRANCES={ENTRANCES} getPaymentAmount={getPaymentAmount} isFuturePeriod={isFuturePeriod} markPaid={markPaid} showToast={showToast} curPeriod={curPeriod} paymentPeriod={paymentPeriod} />
               </div>
             )}
 
@@ -1113,17 +1146,33 @@ export default function VaadBayit() {
                   </div>
                   {entRes.map((r) => {
                     const paid = payments[r.id]?.[paymentPeriod];
+                    const isPending = paid?.method === "ממתין לאישור";
                     return (
                       <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #f5f0e8" }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: paid ? "#e8f5e9" : "#fff3e0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{paid ? "✅" : "⏳"}</div>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: isPending ? "#fff8e1" : paid ? "#e8f5e9" : "#fff3e0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{isPending ? "⏳" : paid ? "✅" : "⏳"}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2744" }}>{r.name}</div>
                           <div style={{ fontSize: 10, color: "#999" }}>
                             דירה {r.apt}
-                            {paid && <span style={{ color: "#4caf50" }}> · {paid.method} · {paid.date}</span>}
+                            {isPending && <span style={{ color: "#f57f17" }}> · ממתין לאישור · דווח {paid.date}</span>}
+                            {paid && !isPending && <span style={{ color: "#4caf50" }}> · {paid.method} · {paid.date}</span>}
                           </div>
                         </div>
-                        {paid ? (
+                        {isPending ? (
+                          <div style={{ display: "flex", gap: 4 }}>
+                            <span style={{ fontSize: 10, color: "#f57f17", fontWeight: 600, background: "#fff8e1", padding: "3px 8px", borderRadius: 8 }}>ממתין ⏳</span>
+                            <select
+                              onChange={(e) => { if (e.target.value) markPaid(r.id, paymentPeriod, e.target.value); e.target.value = ""; }}
+                              style={{ padding: "4px 4px", borderRadius: 6, border: "1px solid #4caf50", background: "#fff", color: "#2e7d32", cursor: "pointer", fontFamily: "var(--f)", fontSize: 9, fontWeight: 600 }}>
+                              <option value="">אשר ▾</option>
+                              <option value="העברה">העברה בנקאית</option>
+                              <option value="bit">bit</option>
+                              <option value="מזומן">מזומן</option>
+                              <option value="צ׳ק">צ׳ק</option>
+                              <option value="אשראי">אשראי</option>
+                            </select>
+                          </div>
+                        ) : paid ? (
                           <span style={{ fontSize: 10, color: "#4caf50", fontWeight: 600, background: "#e8f5e9", padding: "3px 10px", borderRadius: 8 }}>₪{getPaymentAmount(paymentPeriod)} ✓</span>
                         ) : (
                           <div style={{ display: "flex", gap: 4 }}>

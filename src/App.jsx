@@ -10,8 +10,9 @@ const supa = {
     const r = await fetch(`${SUPA_URL}/rest/v1/${table}?${query}`, { headers: supaHeaders });
     return r.ok ? r.json() : [];
   },
-  async upsert(table, data) {
-    const r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+  async upsert(table, data, conflictCols = "") {
+    const conflict = conflictCols ? `?on_conflict=${conflictCols}` : "";
+    const r = await fetch(`${SUPA_URL}/rest/v1/${table}${conflict}`, {
       method: "POST", headers: { ...supaHeaders, "Prefer": "return=representation,resolution=merge-duplicates" },
       body: JSON.stringify(data),
     });
@@ -783,7 +784,7 @@ export default function VaadBayit() {
     ));
     setSigningResident(null);
     showToast("החתימה נקלטה בהצלחה! ✓");
-    supa.upsert("signatures", { decision_id: decisionId, resident_id: residentId, signature_data: sigData, signed_at: now });
+    supa.upsert("signatures", { decision_id: decisionId, resident_id: residentId, signature_data: sigData, signed_at: now }, "decision_id,resident_id");
   };
 
   const createDecision = () => {
@@ -809,7 +810,7 @@ export default function VaadBayit() {
       [residentId]: { ...prev[residentId], [periodId]: { date, method } },
     }));
     showToast("תשלום סומן כהתקבל ✓");
-    supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method });
+    supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method }, "resident_id,period_id");
   };
 
   const importPayments = (updates, periodId) => {
@@ -817,7 +818,7 @@ export default function VaadBayit() {
       const next = { ...prev };
       updates.forEach(({ residentId, method, date }) => {
         next[residentId] = { ...next[residentId], [periodId]: { date, method } };
-        supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method });
+        supa.upsert("payments", { resident_id: residentId, period_id: periodId, paid_date: date, method }, "resident_id,period_id");
       });
       return next;
     });

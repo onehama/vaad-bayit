@@ -795,7 +795,7 @@ export default function VaadBayit() {
     setDecisions((prev) => [{ id: Date.now(), title: newDecision.title, description: newDecision.description, date: new Date().toISOString().split("T")[0], scope: newDecision.scope, status: "active", signatures: sigs }, ...prev]);
 
     const siteUrl = window.location.href.split("?")[0];
-    const msg = `🏢 *ועד הבית · רחוב הנוטר 30 32 34*\n\n📋 *${newDecision.title}*\n\n${newDecision.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}`;
+    const msg = `🏢 *ועד הבית · רחוב הנוטר 30 - 34*\n\n📋 *${newDecision.title}*\n\n${newDecision.description}\n\n✍️ נא להיכנס למערכת ולחתום:\n${siteUrl}`;
     navigator.clipboard?.writeText(msg);
 
     setNewDecision({ title: "", description: "", scope: "all" });
